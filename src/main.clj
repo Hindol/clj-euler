@@ -1,40 +1,18 @@
 (ns main
   (:refer-clojure :exclude [any?])
-  (:require [clj-java-decompiler.core :refer [decompile]]
-            [clojure.string :as str]
-            [clojure.pprint :refer [pprint]]
+  (:require [clj-euler.prime :as prime]
+            [clj-java-decompiler.core :refer [decompile]]
             [clojure.java.io :as io]
             [clojure.math.numeric-tower :as math]
-            [criterium.core :refer :all]))
+            [clojure.pprint :refer [pprint]]
+            [clojure.string :as str]
+            [criterium.core :refer :all]
+            [taoensso.tufte :as tufte :refer [defnp]]))
 
-;; certainty of 15 is sufficient till 2^32
-(def ^:private ^:const certainty 5)
+(set! *warn-on-reflection* true)
+(set! *unchecked-math* true)
 
-(defonce probable-prime?
-  (memoize
-   (fn
-     [n]
-     (.isProbablePrime (BigInteger/valueOf n) certainty))))
-
-(def ^:private primes
-  "Lazy sequence of all the prime numbers."
-  (concat
-   [2 3 5 7]
-   (lazy-seq
-    (let [primes-from (fn primes-from [n [f & r]]
-                        (if (some #(zero? (rem n %))
-                                  (take-while #(<= (* % %) n) primes))
-                          (recur (+ n f) r)
-                          (lazy-seq (cons n (primes-from (+ n f) r)))))
-          wheel (cycle [2 4 2 4 6 2 6 4 2 4 6 6 2 6  4  2
-                        6 4 6 8 4 2 4 2 4 8 6 4 6 2  4  6
-                        2 6 6 4 2 4 6 2 6 4 2 4 2 10 2 10])]
-      (primes-from 11 wheel)))))
-
-(defn- prime?
-  [x]
-  (every? #(pos? (rem x %))
-          (take-while #(<= (* % %) x) primes)))
+(tufte/add-basic-println-handler! {})
 
 (defn- nth-root
   [x n]
@@ -93,28 +71,18 @@
                (range 1 (inc (Math/floor (math/sqrt x)))))))
 
 (defn- times-divisible
-  "How many times can d evenly divide x? Returns the count and the remainder."
-  [x d]
+  "How many times can d evenly divide x?"
+  ^long [^long x ^long d]
   (loop [x x
          t 0]
     (if (zero? (rem x d))
       (recur (quot x d) (inc t))
-      [t x])))
-
-(defn- ^:private prime-factorize
-  "Returns a lazy sequence prime factors (and their exponents)"
-  [x]
-  (let [step (fn f [x [p & more]]
-               (if (<= p x)
-                 (let [[t r] (times-divisible x p)]
-                   (cons [p t] (f r more)))
-                 '()))]
-    (remove #(->> % second zero?) (step x primes))))
+      t)))
 
 (defn- count-divisors
   [x]
   (->> x
-       prime-factorize
+       prime/factorize
        (map #(->> % second inc))
        (reduce *)))
 
@@ -150,61 +118,26 @@
         m (long (Math/pow 10 dcy))]
     (+ y (* m x))))
 
-(defn- read-matrix
-  [path]
-  (let [m      (->> path
-                    io/resource
-                    io/reader
-                    line-seq
-                    (mapv #(mapv read-string (str/split % #","))))
-        height (count m)
-        width  (count (first m))]
-    {:elements m
-     :width    width
-     :height   height}))
+(defn- consecutive?
+  [xs]
+  (->> xs
+       differences
+       (#(or (every? #{-1} %)
+             (every? #{1} %)))))
 
-(defn- find-shortest-distance
-  [{:keys [elements width height]} [sx sy] [ex ey] neighbor-fn]
-  (let [index-in-bounds? (fn [[x y]]
-                           (and (< -1 x height)
-                                (< -1 y width)))
-        visited          (atom #{})
-        distances        (atom {[sx sy] (get-in elements [sx sy])})]
-    (loop [[x y] [sx sy]]
-      (let [neighbors (filter index-in-bounds?
-                              (neighbor-fn [x y]))]
-        (if (= [x y] [ex ey])
-          ;; If we are at destination, return
-          (get @distances [ex ey])
-          ;; Else, maybe update all neighbours distances
-          (do
-            (doseq [nbr neighbors]
-              (swap! distances
-                     assoc
-                     nbr
-                     (min (get @distances nbr Long/MAX_VALUE)
-                          (+ (get @distances [x y])
-                             (get-in elements nbr)))))
-            (swap! visited
-                   conj
-                   [x y])
-            (let [nxt (first (apply min-key
-                                    second
-                                    (remove #(contains? @visited (first %))
-                                            (seq @distances))))]
-              (recur nxt))))))))
+(def count-in-factorial
+  (memoize
+   (fn [p x]
+     (let [x (- x (rem x p))]
+       (if (< x p)
+         0
+         (+ (times-divisible x p) (count-in-factorial p (- x p))))))))
 
-(defn- four-neighbors
-  [[x y]]
-  [[(dec x) y] [x (inc y)] [(inc x) y] [x (dec y)]])
+(defn kempner
+  ([p e]
+   (* p (inc (count (take-while #(< % e) (map #(count-in-factorial p %) (iterate #(+ p %) p)))))))
 
-(def ^:private ^:constant sample
-  {:elements [[131 673 234 103 18]
-              [201 96 342 965 150]
-              [630 803 746 422 111]
-              [537 699 497 121 956]
-              [805 732 524 37 331]]
-   :height   5
-   :width    5})
+  ([x]
+   (apply max (map #(apply kempner %) (prime/factorize x)))))
 
-(find-shortest-distance #_sample (read-matrix "p083_matrix.txt") [0 0] #_[4 4] [79 79] four-neighbors)
+(reduce +' (map kempner (range 2 650001)))
