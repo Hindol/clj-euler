@@ -5,8 +5,9 @@
             [clojure.java.io :as io]
             [clojure.math.numeric-tower :as math]
             [clojure.math.combinatorics :as combo]
-            [clojure.pprint :refer [pprint]]
+            [clojure.pprint :as pp]
             [clojure.string :as str]
+            [clojure.set :as s]
             [criterium.core :refer :all]
             [taoensso.tufte :as tufte :refer [defnp]]))
 
@@ -198,51 +199,7 @@
   ^long [^long x]
   (* x x))
 
-(def ^:private odd-pairs
-  (let [odd-numbers (iterate (partial + 2) 1)]
-    (for [x odd-numbers
-          y (take-while #(< % x) odd-numbers)]
-      [x y])))
-
-(def pythagorean-triplets
-  (map (fn [[m n]]
-         [(* m n) (/ (- (* m m) (* n n)) 2) (/ (+ (* m m) (* n n)) 2)])
-       (filter #(= 1 (apply gcd %)) odd-pairs)))
-
 (defn multiples
   [xs]
   (for [k (iterate inc 1)]
     (mapv (partial * k) xs)))
-
-(defn summations
-  ([x [y & more :as ys]]
-   (cond
-     (< x y) 0
-     (= x y) 1
-     :else   (+ (summations (- x y) ys) (summations x more))))
-  ([x]
-   (summations x (iterate inc 1))))
-
-(def generalized-pentagonals
-  (take 100
-        (map #(/ (* % (dec (* 3 %))) 2)
-             (drop 1 (interleave (iterate inc 0) (iterate dec 0))))))
-
-(def ^:private coin-partitions
-  (memoize
-   (fn
-     [x]
-     (condp = x
-       0 1
-       (let [ps      (take-while #(<= % x) (drop 1 generalized-pentagonals))
-             indices (map (partial - x) ps)
-             terms   (map coin-partitions indices)
-             signed  (map * (cycle [1 1 -1 -1]) terms)]
-         (reduce +' #_(fn [m n] (rem (+' m n) 1000000)) signed))))))
-
-(comment
-  (count
-   (take-while #(pos? (rem % 1000000))
-               (map coin-partitions (iterate inc 1)))))
-
-(last (map coin-partitions (range (inc 150))))
