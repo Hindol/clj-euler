@@ -1,5 +1,6 @@
 (ns main
   (:refer-clojure :exclude [any?])
+  (:import [java.util BitSet Collections])
   (:require [clj-euler.prime :as prime]
             [clj-java-decompiler.core :refer [decompile]]
             [clojure.java.io :as io]
@@ -7,18 +8,14 @@
             [clojure.math.combinatorics :as combo]
             [clojure.pprint :as pp]
             [clojure.string :as str]
-            [clojure.set :as s]
+            [clojure.data.int-map :as i]
             [criterium.core :refer :all]
             [taoensso.tufte :as tufte :refer [defnp]]))
 
-(set! *warn-on-reflection* false)
+(set! *warn-on-reflection* true)
 (set! *unchecked-math* false)
 
 (tufte/add-basic-println-handler! {})
-
-(defn- nth-root
-  [x n]
-  (Math/pow x (/ 1.0 n)))
 
 (defn gcd
   ([x y & more]
@@ -91,31 +88,12 @@
        (map #(->> % second inc))
        (reduce *)))
 
-(comment
-  (reduce #(rem (*' %1 %2) 500500507)
-          (take 500500
-                (let [step (fn step
-                             ([ps]
-                              (step ps (sorted-set (first ps))))
-                             ([[p q & more :as ps] candidates]
-                              (lazy-seq
-                               (let [f (first candidates)
-                                     cs (-> candidates (disj f) (conj (* f f)))]
-                                 (if (= f p)
-                                   (cons f (step (cons q more) (conj cs q)))
-                                   (cons f (step ps cs)))))))]
-                  primes))))
-
 (def ^:private factorial
   (memoize
    (fn [x]
      (if (#{0 1} x)
        1
        (* x (factorial (dec x)))))))
-
-(defn- sum-till
-  [n]
-  (quot (* n (inc n)) 2))
 
 (defn- concat-digits
   [x y]
@@ -195,11 +173,89 @@
             x
             primes)))
 
-(defn square
-  ^long [^long x]
-  (* x x))
-
 (defn multiples
   [xs]
   (for [k (iterate inc 1)]
     (mapv (partial * k) xs)))
+
+(defn int-seq
+  [s]
+  (map read-string (re-seq #"\d+" s)))
+
+(defn read-matrix!
+  [rdr]
+  (mapv #(into [] (int-seq %)) (line-seq rdr)))
+
+(def matrix-sum
+  (memoize
+   (fn
+     ([matrix]
+      (let [row-count      (count matrix)
+            column-count   (count (first matrix))
+            column-choices (into (sorted-set) (range column-count))]
+        (matrix-sum matrix 0 column-choices)))
+     ([matrix row column-choices]
+      (if (empty? column-choices)
+        0
+        (apply max
+               (for [column column-choices]
+                 (+ (get-in matrix [row column])
+                    (matrix-sum matrix (inc row) (disj column-choices column))))))))))
+
+(defn powers
+  ([x]
+   (powers x x))
+  ([x start]
+   (iterate #(* x %) start)))
+
+(defn M
+  [p q N]
+  (let [max-q (last (take-while #(<= (* p %) N) (powers q)))]
+    (loop [x          (last (take-while #(<= (* max-q %) N) (powers p)))
+           y          max-q
+           candidates (transient [])]
+      (if (= 1 y)
+        (apply max (persistent! candidates))
+        (let [next-y (quot y q)
+              next-x (last (take-while #(<= (* next-y %) N)
+                                       (powers p x)))]
+          (recur next-x next-y (conj! candidates (* x y))))))))
+
+(defn square-root
+  [x precision]
+  (letfn [(step [[a b precision]]
+            (if (>= a b)
+              [(-' a b) (+' 10 b) precision]
+              [(*' 100 a) (+' 5 (*' 10 (-' b 5))) (inc precision)]))]
+    (#(-> % first second (quot 100))
+     (drop-while (fn [[a b p]] (< p precision))
+                 (iterate step [(* 5 x) 5N 0])))))
+
+(defn char->digit
+  ^long [^Character ch]
+  (Character/digit ch 10))
+
+(defonce primes (into []
+                  (prime/sieve 100000001)))
+
+(defn prime?
+  [x]
+  (pos?
+   (Collections/binarySearch primes x)))
+
+(defonce pi-prime
+  (into {}
+        (map vector primes (iterate inc 1))))
+
+(defn nearest-prime
+  [x]
+  (when-not (#{0 1} x)
+    (let [idx (Collections/binarySearch primes x)]
+      (if (neg? idx)
+        (nth primes (- (- idx) 2))
+        x))))
+
+(def pi
+  (fn
+    [x]
+    (pi-prime (nearest-prime x))))

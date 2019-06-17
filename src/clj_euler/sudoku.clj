@@ -1,4 +1,5 @@
-(ns clj-euler.sudoku)
+(ns clj-euler.sudoku
+  (:require [clojure.set :as s]))
 
 (defn read-sudoku!
   [rdr]
