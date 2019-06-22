@@ -148,7 +148,7 @@
               (take-distinct
                (iterate step [root {:numerator 1 :denominator {:subtract [{:square-root square-root} root]}}]))))))
 
-(defn is-square?
+(defn square?
   [x]
   (if (pos? x)
     (let [root (Math/round (Math/sqrt x))]
@@ -157,7 +157,7 @@
 
 (defn pell-find-x
   [d]
-  {:pre [(not (is-square? d))]}
+  {:pre [(not (square? d))]}
   (let [cf (continued-fraction :square-root d)]
     (ffirst
      (drop-while (fn [[x y]] (not= 1 (- (*' x x) (*' d y y)))) (convergents (cons (first cf) (cycle (second cf))))))))
@@ -202,25 +202,6 @@
                  (+ (get-in matrix [row column])
                     (matrix-sum matrix (inc row) (disj column-choices column))))))))))
 
-(defn powers
-  ([x]
-   (powers x x))
-  ([x start]
-   (iterate #(* x %) start)))
-
-(defn M
-  [p q N]
-  (let [max-q (last (take-while #(<= (* p %) N) (powers q)))]
-    (loop [x          (last (take-while #(<= (* max-q %) N) (powers p)))
-           y          max-q
-           candidates (transient [])]
-      (if (= 1 y)
-        (apply max (persistent! candidates))
-        (let [next-y (quot y q)
-              next-x (last (take-while #(<= (* next-y %) N)
-                                       (powers p x)))]
-          (recur next-x next-y (conj! candidates (* x y))))))))
-
 (defn square-root
   [x precision]
   (letfn [(step [[a b precision]]
@@ -235,27 +216,10 @@
   ^long [^Character ch]
   (Character/digit ch 10))
 
-(defonce primes (into []
-                  (prime/sieve 100000001)))
+(defn non-bouncy
+  ([length]
+   (non-bouncy length [1 2 3 4 5 6 7 8 9]))
+  ([length choices]
+   choices))
 
-(defn prime?
-  [x]
-  (pos?
-   (Collections/binarySearch primes x)))
-
-(defonce pi-prime
-  (into {}
-        (map vector primes (iterate inc 1))))
-
-(defn nearest-prime
-  [x]
-  (when-not (#{0 1} x)
-    (let [idx (Collections/binarySearch primes x)]
-      (if (neg? idx)
-        (nth primes (- (- idx) 2))
-        x))))
-
-(def pi
-  (fn
-    [x]
-    (pi-prime (nearest-prime x))))
+(non-bouncy 2)
