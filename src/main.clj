@@ -1,15 +1,13 @@
 (ns main
   (:refer-clojure :exclude [any?])
-  (:import [java.util BitSet Collections])
   (:require [clj-euler.prime :as prime]
-            [clj-java-decompiler.core :refer [decompile]]
             [clojure.java.io :as io]
             [clojure.math.numeric-tower :as math]
             [clojure.math.combinatorics :as combo]
             [clojure.pprint :as pp]
             [clojure.string :as str]
             [clojure.data.int-map :as i]
-            [criterium.core :refer :all]
+            [clojure.data.csv :as csv]
             [taoensso.tufte :as tufte :refer [defnp]]))
 
 (set! *warn-on-reflection* true)
@@ -216,10 +214,9 @@
   ^long [^Character ch]
   (Character/digit ch 10))
 
-(defn non-bouncy
-  ([length]
-   (non-bouncy length [1 2 3 4 5 6 7 8 9]))
-  ([length choices]
-   choices))
-
-(non-bouncy 2)
+(defn choose
+  [n r]
+  (if (> n (* 2 r))
+    (/ (reduce *' (take r (iterate dec n)))
+       (reduce *' (range 2 (inc r))))
+    (choose n (- n r))))
