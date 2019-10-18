@@ -10,11 +10,6 @@
             [clojure.data.csv :as csv]
             [taoensso.tufte :as tufte :refer [defnp]]))
 
-(set! *warn-on-reflection* true)
-(set! *unchecked-math* false)
-
-(tufte/add-basic-println-handler! {})
-
 (defn gcd
   ([x y & more]
    (reduce gcd (concat [x y] more)))
@@ -179,26 +174,6 @@
 (defn int-seq
   [s]
   (map read-string (re-seq #"\d+" s)))
-
-(defn read-matrix!
-  [rdr]
-  (mapv #(into [] (int-seq %)) (line-seq rdr)))
-
-(def matrix-sum
-  (memoize
-   (fn
-     ([matrix]
-      (let [row-count      (count matrix)
-            column-count   (count (first matrix))
-            column-choices (into (sorted-set) (range column-count))]
-        (matrix-sum matrix 0 column-choices)))
-     ([matrix row column-choices]
-      (if (empty? column-choices)
-        0
-        (apply max
-               (for [column column-choices]
-                 (+ (get-in matrix [row column])
-                    (matrix-sum matrix (inc row) (disj column-choices column))))))))))
 
 (defn square-root
   [x precision]
