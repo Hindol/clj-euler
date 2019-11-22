@@ -32,8 +32,9 @@
           (mapcat #(subvec % start-y end-y) sub-x))))
 
 (defn- next-cell
-  [x y] (cond (< y 8) [x (inc y)]
-    (< x 8) [(inc x) 0]))
+  [x y]
+  (cond (< y 8) [x (inc y)]
+        (< x 8) [(inc x) 0]))
 
 (def ^:private ^:constant choices
   (sorted-set 1 2 3 4 5 6 7 8 9))
